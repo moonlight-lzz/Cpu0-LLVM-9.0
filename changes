@@ -1,0 +1,1 @@
+grep -R -n -i --colour=auto --exclude-dir="test" --exclude-dir="utils" --exclude-dir="Sparc" --exclude-dir="docs" --exclude-dir="tools"  "Sparc" ./
