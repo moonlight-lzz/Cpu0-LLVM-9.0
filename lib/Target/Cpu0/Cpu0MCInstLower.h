@@ -40,6 +40,10 @@ public:
                                MachineOperandType MOTy, unsigned Offset) const;
   void LowerCPLOAD(SmallVector<MCInst, 4>& MCInsts);
 
+#ifdef ENABLE_GPRESTORE
+  void LowerCPRESTORE(int64_t Offset, SmallVector<MCInst, 4>& MCInsts);
+#endif
+
   MCOperand createSub(MachineBasicBlock *BB1, MachineBasicBlock *BB2,
                       Cpu0MCExpr::Cpu0ExprKind Kind) const;
   void lowerLongBranchLUi(const MachineInstr *MI, MCInst &OutMI) const;

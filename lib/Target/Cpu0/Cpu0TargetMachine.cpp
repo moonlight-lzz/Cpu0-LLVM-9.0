@@ -175,6 +175,11 @@ public:
   bool addInstSelector() override;
 
   void addPreEmitPass() override;
+  //#if CH >= CH9_3 //1
+#ifdef ENABLE_GPRESTORE
+  void addPreRegAlloc() override;
+#endif
+  //#endif //#i
 };
 } // namespace
 
@@ -187,6 +192,18 @@ bool Cpu0PassConfig::addInstSelector() {
   addPass(createCpu0SEISelDag(getCpu0TargetMachine(), getOptLevel()));
   return false;
 }
+
+//#if CH >= CH9_3 //2
+#ifdef ENABLE_GPRESTORE
+void Cpu0PassConfig::addPreRegAlloc() {
+  if (!Cpu0ReserveGP) {
+    // $gp is a caller-saved register.
+    addPass(createCpu0EmitGPRestorePass(getCpu0TargetMachine()));
+  }
+  return;
+}
+#endif
+//#endif //#if CH >= CH9_3 //2
 
 // Implemented by targets that want to run passes immediately before
 // machine code is emitted. return true if -print-machineinstrs should

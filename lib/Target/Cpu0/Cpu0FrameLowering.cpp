@@ -103,8 +103,9 @@ MachineBasicBlock::iterator
 Cpu0FrameLowering::eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                               MachineBasicBlock::iterator I) const {
 
+  //#if CH >= CH9_3 // dynamic alloc
   unsigned SP = Cpu0::SP;
-  //dynamic alloc
+
   if (!hasReservedCallFrame(MF)) {
     int64_t Amount = I->getOperand(0).getImm();
     if (I->getOpcode() == Cpu0::ADJCALLSTACKDOWN)
@@ -112,6 +113,7 @@ Cpu0FrameLowering::eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBas
 
     STI.getInstrInfo()->adjustStackPtr(SP, Amount, MBB, I);
   }
+  //#endif // dynamic alloc
 
 
   return MBB.erase(I);

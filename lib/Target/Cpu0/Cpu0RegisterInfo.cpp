@@ -66,7 +66,21 @@ getReservedRegs(const MachineFunction &MF) const {
   for (unsigned I = 0; I < array_lengthof(ReservedCPURegs); ++I)
     Reserved.set(ReservedCPURegs[I]);
 
-  Reserved.set(Cpu0::GP);
+  //#if CH >= CH9_3 //2
+  // Reserve FP if this function should have a dedicated frame pointer register.
+  if (MF.getSubtarget().getFrameLowering()->hasFP(MF)) {
+    Reserved.set(Cpu0::FP);
+  }
+  //#endif
+
+  //#if CH >= CH6_1
+#ifdef ENABLE_GPRESTORE //1
+  const Cpu0FunctionInfo *Cpu0FI = MF.getInfo<Cpu0FunctionInfo>();
+  // Reserve GP if globalBaseRegFixed()
+  if (Cpu0FI->globalBaseRegFixed())
+    //#endif
+    Reserved.set(Cpu0::GP);
+#endif //#if CH >= CH6_1
 
   return Reserved;
 }
@@ -77,9 +91,10 @@ getReservedRegs(const MachineFunction &MF) const {
 // FrameIndex represent objects inside a abstract stack.
 // We must replace FrameIndex with an stack/frame pointer
 // direct reference.
-void Cpu0RegisterInfo::
-eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
-                    unsigned FIOperandNum, RegScavenger *RS) const {
+void
+Cpu0RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
+                                      unsigned FIOperandNum, RegScavenger *RS) const {
+
   MachineInstr &MI = *II;
   MachineFunction &MF = *MI.getParent()->getParent();
   MachineFrameInfo &MFI = MF.getFrameInfo();
@@ -120,7 +135,13 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
   // getFrameRegister() returns.
   unsigned FrameReg;
 
-  FrameReg = Cpu0::SP;
+
+  if (Cpu0FI->isOutArgFI(FrameIndex) || Cpu0FI->isDynAllocFI(FrameIndex) ||
+      (FrameIndex >= MinCSFI && FrameIndex <= MaxCSFI))
+    FrameReg = Cpu0::SP;
+  else
+    FrameReg = getFrameRegister(MF);
+
 
   // Calculate final offset.
   // - There is no need to change the offset if the frame object is one of the
@@ -130,6 +151,14 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
   //   by adding the size of the stack:
   //   incoming argument, callee-saved register location or local variable.
   int64_t Offset;
+
+#ifdef ENABLE_GPRESTORE //2
+  if (Cpu0FI->isOutArgFI(FrameIndex) || Cpu0FI->isGPFI(FrameIndex) ||
+      Cpu0FI->isDynAllocFI(FrameIndex))
+    Offset = spOffset;
+  else
+#endif
+
     Offset = spOffset + (int64_t)stackSize;
 
   Offset    += MI.getOperand(i+1).getImm();
@@ -144,8 +173,8 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
 
   MI.getOperand(i).ChangeToRegister(FrameReg, false);
   MI.getOperand(i+1).ChangeToImmediate(Offset);
+
 }
-//}
 
 bool
 Cpu0RegisterInfo::requiresRegisterScavenging(const MachineFunction &MF) const {
@@ -158,9 +187,9 @@ Cpu0RegisterInfo::trackLivenessAfterRegAlloc(const MachineFunction &MF) const {
 }
 
 // pure virtual method
-Register Cpu0RegisterInfo::getFrameRegister(const MachineFunction &MF) const {
+Register Cpu0RegisterInfo::
+getFrameRegister(const MachineFunction &MF) const {
   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
   return TFI->hasFP(MF) ? (Cpu0::FP) :
                           (Cpu0::SP);
 }
-

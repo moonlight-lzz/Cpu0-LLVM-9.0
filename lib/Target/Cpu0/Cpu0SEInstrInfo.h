@@ -49,6 +49,9 @@ public:
 //@expandPostRAPseudo
   bool expandPostRAPseudo(MachineInstr &MI) const override;
 
+  void expandEhReturn(MachineBasicBlock &MBB,
+                      MachineBasicBlock::iterator I) const;
+
   /// Adjust SP by Amount bytes.
   void adjustStackPtr(unsigned SP, int64_t Amount, MachineBasicBlock &MBB,
                       MachineBasicBlock::iterator I) const override;

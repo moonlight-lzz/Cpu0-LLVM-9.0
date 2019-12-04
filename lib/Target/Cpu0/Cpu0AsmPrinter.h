@@ -48,6 +48,13 @@ private:
   bool emitPseudoExpansionLowering(MCStreamer &OutStreamer,
                                    const MachineInstr *MI);
 
+
+#ifdef ENABLE_GPRESTORE
+  void emitPseudoCPRestore(MCStreamer &OutStreamer,
+                           const MachineInstr *MI);
+#endif //CH9_3
+
+
 public:
 
   const Cpu0Subtarget *Subtarget;

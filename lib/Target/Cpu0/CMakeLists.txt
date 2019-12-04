@@ -39,6 +39,7 @@ add_llvm_target(Cpu0CodeGen
   Cpu0TargetObjectFile.cpp
   Cpu0TargetMachine.cpp
   Cpu0LongBranch.cpp
+  Cpu0EmitGPRestore.cpp
   )
 
 # Should match with "subdirectories =  MCTargetDesc TargetInfo" in LLVMBuild.txt

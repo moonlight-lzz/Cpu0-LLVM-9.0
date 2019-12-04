@@ -49,12 +49,62 @@ bool Cpu0AsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   return true;
 }
 
+//#if CH >= CH9_3 //1
+#ifdef ENABLE_GPRESTORE
+void Cpu0AsmPrinter::EmitInstrWithMacroNoAT(const MachineInstr *MI) {
+  MCInst TmpInst;
+
+  MCInstLowering.Lower(MI, TmpInst);
+  OutStreamer->EmitRawText(StringRef("\t.set\tmacro"));
+  if (Cpu0FI->getEmitNOAT())
+    OutStreamer->EmitRawText(StringRef("\t.set\tat"));
+  OutStreamer->EmitInstruction(TmpInst, getSubtargetInfo());
+  if (Cpu0FI->getEmitNOAT())
+    OutStreamer->EmitRawText(StringRef("\t.set\tnoat"));
+  OutStreamer->EmitRawText(StringRef("\t.set\tnomacro"));
+}
+#endif
+//#endif //#if CH >= CH9_3 //1
+
 bool Cpu0AsmPrinter::lowerOperand(const MachineOperand &MO, MCOperand &MCOp) {
   MCOp = MCInstLowering.LowerOperand(MO);
   return MCOp.isValid();
 }
 
 #include "Cpu0GenMCPseudoLowering.inc"
+
+//#if CH >= CH9_3 //2
+#ifdef ENABLE_GPRESTORE
+void Cpu0AsmPrinter::emitPseudoCPRestore(MCStreamer &OutStreamer,
+                                              const MachineInstr *MI) {
+  unsigned Opc = MI->getOpcode();
+  SmallVector<MCInst, 4> MCInsts;
+  const MachineOperand &MO = MI->getOperand(0);
+  assert(MO.isImm() && "CPRESTORE's operand must be an immediate.");
+  int64_t Offset = MO.getImm();
+
+  if (OutStreamer.hasRawTextSupport()) {
+    // output assembly
+    if (!isInt<16>(Offset)) {
+      EmitInstrWithMacroNoAT(MI);
+      return;
+    }
+    MCInst TmpInst0;
+    MCInstLowering.Lower(MI, TmpInst0);
+    OutStreamer.EmitInstruction(TmpInst0, getSubtargetInfo());
+  } else {
+    // output elf
+    MCInstLowering.LowerCPRESTORE(Offset, MCInsts);
+
+    for (SmallVector<MCInst, 4>::iterator I = MCInsts.begin();
+         I != MCInsts.end(); ++I)
+      OutStreamer.EmitInstruction(*I, getSubtargetInfo());
+
+    return;
+  }
+}
+#endif
+//#endif //#if CH >= CH9_3 //2
 
 //@EmitInstruction {
 //- EmitInstruction() must exists or will have run time error.
@@ -74,12 +124,26 @@ void Cpu0AsmPrinter::EmitInstruction(const MachineInstr *MI) {
   MachineBasicBlock::const_instr_iterator E = MI->getParent()->instr_end();
 
   do {
-
+    //#if CH >= CH9_1
     // Do any auto-generated pseudo lowerings.
     if (emitPseudoExpansionLowering(*OutStreamer, &*I))
       continue;
+    //#endif //#if CH >= CH9_1
 
+    //#if CH >= CH9_3 //3
+#ifdef ENABLE_GPRESTORE
+    if (I->getOpcode() == Cpu0::CPRESTORE) {
+      emitPseudoCPRestore(*OutStreamer, &*I);
+      continue;
+    }
+#endif
+    //#endif //#if CH >= CH9_3 //3
+
+    //#if CH >= CH8_2 //1
     if (I->isPseudo() && !isLongBranchPseudo(I->getOpcode()))
+      //#else
+      //    if (I->isPseudo())
+      //#endif //#if CH >= CH8_2 //1
       llvm_unreachable("Pseudo opcode found in EmitInstruction()");
 
     MCInst TmpInst0;
